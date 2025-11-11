@@ -1,0 +1,170 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: darkweb-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: darkweb_monitor
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - darkweb-network
+
+  # PostgreSQL Database (optional, for structured data)
+  postgres:
+    image: postgres:16
+    container_name: darkweb-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: darkweb_user
+      POSTGRES_PASSWORD: darkweb_password
+      POSTGRES_DB: darkweb_monitor
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - darkweb-network
+
+  # Redis Cache & Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: darkweb-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - darkweb-network
+
+  # Tor Proxy
+  tor:
+    image: dperson/torproxy
+    container_name: darkweb-tor
+    restart: unless-stopped
+    ports:
+      - "9050:9050"
+      - "9051:9051"
+    networks:
+      - darkweb-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: darkweb-backend
+    restart: unless-stopped
+    environment:
+      MONGODB_URL: mongodb://mongodb:27017
+      MONGODB_DB_NAME: darkweb_monitor
+      POSTGRES_SERVER: postgres
+      POSTGRES_USER: darkweb_user
+      POSTGRES_PASSWORD: darkweb_password
+      POSTGRES_DB: darkweb_monitor
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      TOR_PROXY_HOST: tor
+      TOR_PROXY_PORT: 9050
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-secret}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+      - redis
+      - tor
+    volumes:
+      - ./backend:/app
+      - backend_logs:/app/logs
+    networks:
+      - darkweb-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: darkweb-celery-worker
+    restart: unless-stopped
+    environment:
+      MONGODB_URL: mongodb://mongodb:27017
+      MONGODB_DB_NAME: darkweb_monitor
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      TOR_PROXY_HOST: tor
+      TOR_PROXY_PORT: 9050
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+    depends_on:
+      - mongodb
+      - redis
+      - tor
+      - backend
+    volumes:
+      - ./backend:/app
+    networks:
+      - darkweb-network
+    command: celery -A app.celery_worker worker --loglevel=info
+
+  # Celery Beat (Scheduler)
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: darkweb-celery-beat
+    restart: unless-stopped
+    environment:
+      MONGODB_URL: mongodb://mongodb:27017
+      MONGODB_DB_NAME: darkweb_monitor
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+    depends_on:
+      - mongodb
+      - redis
+      - backend
+    volumes:
+      - ./backend:/app
+    networks:
+      - darkweb-network
+    command: celery -A app.celery_worker beat --loglevel=info
+
+  # Frontend Dashboard
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: darkweb-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - darkweb-network
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  mongodb_data:
+  postgres_data:
+  redis_data:
+  backend_logs:
+
+networks:
+  darkweb-network:
+    driver: bridge
