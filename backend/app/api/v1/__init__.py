@@ -2,8 +2,10 @@
 from fastapi import APIRouter
 from .threats import router as threats_router
 from .rules import router as rules_router
+from .auth import router as auth_router
 
 api_router = APIRouter()
 
+api_router.include_router(auth_router, prefix="/auth", tags=["authentication"])
 api_router.include_router(threats_router, prefix="/threats", tags=["threats"])
 api_router.include_router(rules_router, prefix="/rules", tags=["monitoring-rules"])
