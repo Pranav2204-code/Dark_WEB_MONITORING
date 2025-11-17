@@ -85,15 +85,15 @@ async def health_check():
 
     health_status = {
         "status": "healthy",
-        "mongodb": "connected" if db.db else "disconnected",
-        "redis": "connected" if db.redis else "disconnected",
+        "mongodb": "connected" if db.db is not None else "disconnected",
+        "redis": "connected" if db.redis is not None else "disconnected",
     }
 
     # Check database connections
     try:
-        if db.db:
+        if db.db is not None:
             await db.db.command("ping")
-        if db.redis:
+        if db.redis is not None:
             db.redis.ping()
     except Exception as e:
         health_status["status"] = "unhealthy"
