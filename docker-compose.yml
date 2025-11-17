@@ -96,12 +96,17 @@ services:
     environment:
       MONGODB_URL: mongodb://mongodb:27017
       MONGODB_DB_NAME: darkweb_monitor
+      POSTGRES_SERVER: postgres
+      POSTGRES_USER: darkweb_user
+      POSTGRES_PASSWORD: darkweb_password
+      POSTGRES_DB: darkweb_monitor
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       TOR_PROXY_HOST: tor
       TOR_PROXY_PORT: 9050
       SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-secret}
     depends_on:
       - mongodb
       - redis
@@ -123,10 +128,15 @@ services:
     environment:
       MONGODB_URL: mongodb://mongodb:27017
       MONGODB_DB_NAME: darkweb_monitor
+      POSTGRES_SERVER: postgres
+      POSTGRES_USER: darkweb_user
+      POSTGRES_PASSWORD: darkweb_password
+      POSTGRES_DB: darkweb_monitor
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-secret}
     depends_on:
       - mongodb
       - redis
