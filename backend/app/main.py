@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
 
     # Create indexes
     from .core.database import db
-    if db.db:
+    if db.db is not None:
         # Text index for search
         await db.db.threats.create_index([("title", "text"), ("content", "text")])
         # Index for queries
